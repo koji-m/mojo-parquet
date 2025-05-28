@@ -8,5 +8,5 @@ A native Mojo library that implements the Apache Parquet file format.
 ## testing
 
 ```shell
-pixi task test
+pixi run test
 ```
