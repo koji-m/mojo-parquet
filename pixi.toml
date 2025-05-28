@@ -1,0 +1,13 @@
+[workspace]
+authors = ["Koji Matsumoto <otomustam.ijok@gmail.com>"]
+channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
+name = "mojo-parquet"
+platforms = ["linux-64"]
+version = "0.1.0"
+license = "Apache-2.0"
+
+[tasks]
+test = "mojo test -I . test"
+
+[dependencies]
+modular = ">=25.4.0.dev2025052605,<26"
