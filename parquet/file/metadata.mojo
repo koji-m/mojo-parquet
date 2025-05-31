@@ -7,7 +7,7 @@ from parquet.file.constants import FOOTER_SIZE, PARQUET_MAGIC
 
 @value
 struct ParquetMetaData:
-    pass
+    var file_metadata: FileMetaData
 
 @value
 struct FooterTail:
@@ -69,3 +69,13 @@ struct ParquetMetaDataReader:
         _ = chunk_reader.seek(-footer_metadata_len, os.SEEK_END)
 
         return self.decode_metadata(chunk_reader.read_bytes(metadata_len))
+
+    fn parse(mut self, chunk_reader: FileHandle) raises:
+        var parquet_metadata = ParquetMetaData(self.parse_metadata(chunk_reader))
+        self.metadata = Optional[ParquetMetaData](parquet_metadata)
+
+    fn finish(mut self) raises -> ParquetMetaData:
+        if self.metadata:
+            return self.metadata.take()
+        else:
+            raise Error("metadata could not parsed")
