@@ -14,3 +14,10 @@ fn test_num_rows() raises:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         assert_equal(parquet_metadata.file_metadata.num_rows, 4)
+
+fn test_num_row_groups() raises:
+    var reader = ParquetMetaDataReader()
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        assert_equal(len(parquet_metadata.file_metadata.row_groups), 1)
