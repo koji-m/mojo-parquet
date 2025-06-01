@@ -13,7 +13,7 @@ from thrift.protocol.base import TProtocol, TType
 
 
 @value
-struct Type(Representable, Writable, Stringable):
+struct Type(Representable, Writable, Stringable, EqualityComparable):
     """
     Types supported by Parquet.  These types are intended to be used in combination
     with the encodings to control the on disk storage format.
@@ -91,7 +91,7 @@ struct Type(Representable, Writable, Stringable):
 
 
 @value
-struct ConvertedType(Representable, Writable, Stringable):
+struct ConvertedType(Representable, Writable, Stringable, EqualityComparable):
     """
     DEPRECATED: Common types used by frameworks(e.g. hive, pig) using parquet.
     ConvertedType is superseded by LogicalType.  This enum should not be extended.
@@ -239,7 +239,7 @@ struct ConvertedType(Representable, Writable, Stringable):
 
 
 @value
-struct FieldRepetitionType(Representable, Writable, Stringable):
+struct FieldRepetitionType(Representable, Writable, Stringable, EqualityComparable):
     """
     Representation of Schemas
 
@@ -289,7 +289,7 @@ struct FieldRepetitionType(Representable, Writable, Stringable):
 
 
 @value
-struct EdgeInterpolationAlgorithm(Representable, Writable, Stringable):
+struct EdgeInterpolationAlgorithm(Representable, Writable, Stringable, EqualityComparable):
     """
     Edge interpolation algorithm for Geography logical type
 
@@ -349,7 +349,7 @@ struct EdgeInterpolationAlgorithm(Representable, Writable, Stringable):
 
 
 @value
-struct Encoding(Representable, Writable, Stringable):
+struct Encoding(Representable, Writable, Stringable, EqualityComparable):
     """
     Encodings supported by Parquet.  Not all encodings are valid for all types.  These
     enums are also used to specify the encoding of definition and repetition levels.
@@ -431,7 +431,7 @@ struct Encoding(Representable, Writable, Stringable):
 
 
 @value
-struct CompressionCodec(Representable, Writable, Stringable):
+struct CompressionCodec(Representable, Writable, Stringable, EqualityComparable):
     """
     Supported compression algorithms.
 
@@ -512,7 +512,7 @@ struct CompressionCodec(Representable, Writable, Stringable):
 
 
 @value
-struct PageType(Representable, Writable, Stringable):
+struct PageType(Representable, Writable, Stringable, EqualityComparable):
     var value: Int32
 
     alias DATA_PAGE = PageType(0)
@@ -563,7 +563,7 @@ struct PageType(Representable, Writable, Stringable):
 
 
 @value
-struct BoundaryOrder(Representable, Writable, Stringable):
+struct BoundaryOrder(Representable, Writable, Stringable, EqualityComparable):
     """
     Enum to annotate whether lists of min/max elements inside ColumnIndex
     are ordered and if so, in which direction.
