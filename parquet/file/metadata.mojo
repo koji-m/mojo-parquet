@@ -1,13 +1,23 @@
 import os
 
-from parquet.gen.parquet.ttypes import FileMetaData
+import parquet.gen.parquet.ttypes as tt
 from thrift.protocol.compact import TCompactProtocol
 from thrift.transport import TMemoryBuffer
 from parquet.file.constants import FOOTER_SIZE, PARQUET_MAGIC
 
 @value
+struct FileMetaData:
+    var version: Int32
+    var num_rows: Int64
+    var created_by: Optional[String]
+    var schema: List[tt.SchemaElement]
+    var key_value_metadata: Optional[List[tt.KeyValue]]
+    var column_orders: Optional[List[tt.ColumnOrder]]
+
+@value
 struct ParquetMetaData:
     var file_metadata: FileMetaData
+    var row_groups: List[tt.RowGroup]
 
 @value
 struct FooterTail:
@@ -38,7 +48,7 @@ struct ParquetMetaDataReader:
 
     @staticmethod
     # fn decode_metadata(buf: List[UInt8]) raises -> ParquetMetaData:
-    fn decode_metadata(buf: List[UInt8]) raises -> FileMetaData:
+    fn decode_metadata(buf: List[UInt8]) raises -> ParquetMetaData:
         var transport = TMemoryBuffer(buf, 0)
         var protocol = TCompactProtocol(
             transport,
@@ -49,15 +59,19 @@ struct ParquetMetaDataReader:
             List[Int16](),
             Optional[Int16](None),
         )
-        var file_meta_data = FileMetaData.read(protocol)
+        var tfile_meta_data = tt.FileMetaData.read(protocol)
+        var file_meta_data = FileMetaData(
+            version=tfile_meta_data.version,
+            num_rows=tfile_meta_data.num_rows,
+            created_by=tfile_meta_data.created_by,
+            schema=tfile_meta_data.schema,
+            key_value_metadata=tfile_meta_data.key_value_metadata,
+            column_orders=tfile_meta_data.column_orders,
+        )
 
-        return file_meta_data
-        # print metadata for test
-        # print("file_meta_data.version: ", file_meta_data.version)
-        # print("file_meta_data.num_rows: ", file_meta_data.num_rows)
-        # return ParquetMetaData()
+        return ParquetMetaData(file_meta_data, tfile_meta_data.row_groups)
 
-    fn parse_metadata(mut self, chunk_reader: FileHandle) raises -> FileMetaData:
+    fn parse_metadata(mut self, chunk_reader: FileHandle) raises -> ParquetMetaData:
         # ToDo check file size
         _ = chunk_reader.seek(-FOOTER_SIZE, os.SEEK_END)
         var footer_bytes = chunk_reader.read_bytes(FOOTER_SIZE)
@@ -71,7 +85,7 @@ struct ParquetMetaDataReader:
         return self.decode_metadata(chunk_reader.read_bytes(metadata_len))
 
     fn parse(mut self, chunk_reader: FileHandle) raises:
-        var parquet_metadata = ParquetMetaData(self.parse_metadata(chunk_reader))
+        var parquet_metadata = self.parse_metadata(chunk_reader)
         self.metadata = Optional[ParquetMetaData](parquet_metadata)
 
     fn finish(mut self) raises -> ParquetMetaData:

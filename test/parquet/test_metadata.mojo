@@ -21,7 +21,7 @@ fn test_num_row_groups() raises:
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
-        assert_equal(len(parquet_metadata.file_metadata.row_groups), 1)
+        assert_equal(len(parquet_metadata.row_groups), 1)
 
 fn test_created_by() raises:
     var reader = ParquetMetaDataReader()
@@ -130,7 +130,7 @@ fn test_row_group_column_file_path() raises:
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
-        var row_group = parquet_metadata.file_metadata.row_groups[0]
+        var row_group = parquet_metadata.row_groups[0]
         # all column data is stored same file as metadata
         var column_chunk = row_group.columns[0]
         assert_false(column_chunk.file_path)
@@ -146,7 +146,7 @@ fn test_row_group_column_file_offset() raises:
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
-        var row_group = parquet_metadata.file_metadata.row_groups[0]
+        var row_group = parquet_metadata.row_groups[0]
         # (deprecated field) writers should set this field to 0 if no ColumnMetaData has been written outside the footer
         var column_chunk = row_group.columns[0]
         assert_equal(column_chunk.file_offset, 0)
