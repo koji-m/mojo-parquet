@@ -47,7 +47,6 @@ struct ParquetMetaDataReader:
         return FooterTail(Int(metadata_len))
 
     @staticmethod
-    # fn decode_metadata(buf: List[UInt8]) raises -> ParquetMetaData:
     fn decode_metadata(buf: List[UInt8]) raises -> ParquetMetaData:
         var transport = TMemoryBuffer(buf, 0)
         var protocol = TCompactProtocol(
