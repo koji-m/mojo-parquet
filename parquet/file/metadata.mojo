@@ -4,6 +4,7 @@ import parquet.gen.parquet.ttypes as tt
 from thrift.protocol.compact import TCompactProtocol
 from thrift.transport import TMemoryBuffer
 from parquet.file.constants import FOOTER_SIZE, PARQUET_MAGIC
+from parquet.file.page_index.offset_index import OffsetIndexMetaData
 
 @value
 struct FileMetaData:
@@ -18,6 +19,7 @@ struct FileMetaData:
 struct ParquetMetaData:
     var file_metadata: FileMetaData
     var row_groups: List[tt.RowGroup]
+    var offset_index: Optional[List[List[OffsetIndexMetaData]]]
 
 @value
 struct FooterTail:
@@ -68,7 +70,11 @@ struct ParquetMetaDataReader:
             column_orders=tfile_meta_data.column_orders,
         )
 
-        return ParquetMetaData(file_meta_data, tfile_meta_data.row_groups)
+        return ParquetMetaData(
+            file_meta_data,
+            tfile_meta_data.row_groups,
+            Optional[List[List[OffsetIndexMetaData]]](None),
+        )
 
     fn parse_metadata(mut self, chunk_reader: FileHandle) raises -> ParquetMetaData:
         # ToDo check file size
