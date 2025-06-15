@@ -125,34 +125,74 @@ fn test_schema_logical_type() raises:
         schema_element = parquet_metadata.file_metadata.schema[3]
         assert_false(schema_element.logicalType)
 
-fn test_row_group_column_file_path() raises:
+fn test_offset_index_offset() raises:
     var reader = ParquetMetaDataReader()
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
-        # all column data is stored same file as metadata
         var column_chunk = row_group.columns[0]
-        assert_false(column_chunk.file_path)
+        assert_true(column_chunk.offset_index_offset)
+        assert_equal(column_chunk.offset_index_offset.value(), 353)
         column_chunk = row_group.columns[1]
-        assert_false(column_chunk.file_path)
+        assert_true(column_chunk.offset_index_offset)
+        assert_equal(column_chunk.offset_index_offset.value(), 363)
         column_chunk = row_group.columns[2]
-        assert_false(column_chunk.file_path)
+        assert_true(column_chunk.offset_index_offset)
+        assert_equal(column_chunk.offset_index_offset.value(), 377)
         column_chunk = row_group.columns[3]
-        assert_false(column_chunk.file_path)
+        assert_false(column_chunk.offset_index_offset)
 
-fn test_row_group_column_file_offset() raises:
+fn test_offset_index_length() raises:
     var reader = ParquetMetaDataReader()
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
-        # (deprecated field) writers should set this field to 0 if no ColumnMetaData has been written outside the footer
         var column_chunk = row_group.columns[0]
-        assert_equal(column_chunk.file_offset, 0)
+        assert_true(column_chunk.offset_index_length)
+        assert_equal(column_chunk.offset_index_length.value(), 10)
         column_chunk = row_group.columns[1]
-        assert_equal(column_chunk.file_offset, 0)
+        assert_true(column_chunk.offset_index_length)
+        assert_equal(column_chunk.offset_index_length.value(), 14)
         column_chunk = row_group.columns[2]
-        assert_equal(column_chunk.file_offset, 0)
+        assert_true(column_chunk.offset_index_length)
+        assert_equal(column_chunk.offset_index_length.value(), 11)
         column_chunk = row_group.columns[3]
-        assert_equal(column_chunk.file_offset, 0)
+        assert_false(column_chunk.offset_index_length)
+
+fn test_column_index_offset() raises:
+    var reader = ParquetMetaDataReader()
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        var row_group = parquet_metadata.row_groups[0]
+        var column_chunk = row_group.columns[0]
+        assert_true(column_chunk.column_index_offset)
+        assert_equal(column_chunk.column_index_offset.value(), 267)
+        column_chunk = row_group.columns[1]
+        assert_true(column_chunk.column_index_offset)
+        assert_equal(column_chunk.column_index_offset.value(), 298)
+        column_chunk = row_group.columns[2]
+        assert_true(column_chunk.column_index_offset)
+        assert_equal(column_chunk.column_index_offset.value(), 326)
+        column_chunk = row_group.columns[3]
+        assert_false(column_chunk.column_index_offset)
+
+fn test_column_index_length() raises:
+    var reader = ParquetMetaDataReader()
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        var row_group = parquet_metadata.row_groups[0]
+        var column_chunk = row_group.columns[0]
+        assert_true(column_chunk.column_index_length)
+        assert_equal(column_chunk.column_index_length.value(), 31)
+        column_chunk = row_group.columns[1]
+        assert_true(column_chunk.column_index_length)
+        assert_equal(column_chunk.column_index_length.value(), 28)
+        column_chunk = row_group.columns[2]
+        assert_true(column_chunk.column_index_length)
+        assert_equal(column_chunk.column_index_length.value(), 27)
+        column_chunk = row_group.columns[3]
+        assert_false(column_chunk.column_index_length)

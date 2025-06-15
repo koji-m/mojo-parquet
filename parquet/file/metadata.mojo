@@ -16,9 +16,32 @@ struct FileMetaData:
     var column_orders: Optional[List[tt.ColumnOrder]]
 
 @value
+struct ColumnChunkMetaData:
+    var offset_index_offset: Optional[Int64]
+    var offset_index_length: Optional[Int32]
+    var column_index_offset: Optional[Int64]
+    var column_index_length: Optional[Int32]
+
+    fn __init__(out self, t_column_chunk: tt.ColumnChunk):
+        self.offset_index_offset = t_column_chunk.offset_index_offset
+        self.offset_index_length = t_column_chunk.offset_index_length
+        self.column_index_offset = t_column_chunk.column_index_offset
+        self.column_index_length = t_column_chunk.column_index_length
+
+@value
+struct RowGroupMetaData:
+    var columns: List[ColumnChunkMetaData]
+
+    fn __init__(out self, t_row_group: tt.RowGroup):
+        var columns = List[ColumnChunkMetaData]()
+        for t_column in t_row_group.columns:
+            columns.append(ColumnChunkMetaData(t_column[]))
+        self.columns = columns
+
+@value
 struct ParquetMetaData:
     var file_metadata: FileMetaData
-    var row_groups: List[tt.RowGroup]
+    var row_groups: List[RowGroupMetaData]
     var offset_index: Optional[List[List[OffsetIndexMetaData]]]
 
 @value
@@ -69,10 +92,13 @@ struct ParquetMetaDataReader:
             key_value_metadata=tfile_meta_data.key_value_metadata,
             column_orders=tfile_meta_data.column_orders,
         )
+        var row_groups = List[RowGroupMetaData]()
+        for rg in tfile_meta_data.row_groups:
+            row_groups.append(RowGroupMetaData(rg[]))
 
         return ParquetMetaData(
             file_meta_data,
-            tfile_meta_data.row_groups,
+            row_groups,
             Optional[List[List[OffsetIndexMetaData]]](None),
         )
 
