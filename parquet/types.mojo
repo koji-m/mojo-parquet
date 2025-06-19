@@ -141,3 +141,6 @@ struct Repetition:
     alias REQUIRED = Repetition(0)
     alias OPTIONAL = Repetition(1)
     alias REPEATED = Repetition(2)
+
+    fn __eq__(self, other: Repetition) -> Bool:
+        return self.value == other.value
