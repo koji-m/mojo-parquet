@@ -1,11 +1,12 @@
 from utils import Variant
-from parquet.types import ConvertedType, LogicalType, PhysicalType, Repetition
+from parquet.gen.parquet.ttypes import SchemaElement
+from parquet.types import ConvertedType, LogicalType, PhysicalType, Repetition, logical_type_from_thrift
 
 @value
 struct BasicTypeInfo:
     var name: String
     var repetition: Optional[Repetition]
-    var converted_type: ConvertedType
+    var converted_type: Optional[ConvertedType]
     var logical_type: Optional[LogicalType]
     var id: Optional[Int32]
 
@@ -46,6 +47,12 @@ struct ColumnDescriptor:
         self.max_def_level = max_def_level
         self.max_rep_level = max_rep_level
         self.path = path
+
+    fn physical_type(self) raises -> PhysicalType:
+        if self.primitive_type.isa[PrimitiveType]():
+            return self.primitive_type[PrimitiveType].physical_type
+        else:
+            raise Error("ColumnDescriptor must be initialized with a PrimitiveType")
 
 fn build_tree(
     tp: Type,
@@ -99,6 +106,110 @@ fn build_tree(
             )
             _ = path_so_far.pop()
 
+fn from_thrift(elements: List[SchemaElement]) raises -> Type:
+    var index = 0
+    var schema_nodes = List[Type]()
+    while index < len(elements):
+        var t = from_thrift_helper(elements, index)
+        index = t[0]
+        schema_nodes.append(t[1])
+    if len(schema_nodes) != 1:
+        raise Error("Expected exactly one root node, but found ", len(schema_nodes))
+
+    if not schema_nodes[0].isa[GroupType]():
+        raise Error("Expected root node to be a group type")
+    return schema_nodes[0]
+
+fn from_thrift_helper(
+    elements: List[SchemaElement],
+    index: Int,
+) raises -> Tuple[Int, Type]:
+    var is_root_node = index == 0
+
+    if index >= len(elements):
+        raise Error("Index out of bound, index = ", index, ", len = ", len(elements))
+
+    if is_root_node and (
+        not elements[index].num_children or
+        elements[index].num_children.value() == 0):
+        var empty_type = GroupType(
+            basic_info=BasicTypeInfo(
+                name=elements[index].name,
+                repetition=None,
+                converted_type=None,
+                logical_type=None,
+                id= None,
+            ),
+            fields=[],
+        )
+        return Tuple(index + 1, Type(empty_type))
+
+    var converted_type = ConvertedType.from_thrift(elements[index])
+
+    var logical_type = logical_type_from_thrift(elements[index])
+
+    var filed_id = elements[index].field_id
+
+    if not elements[index].num_children or elements[index].num_children.value() == 0:
+        if not elements[index].repetition_type:
+            raise Error("Repetition level must be defined for a primitive type")
+        var repetition = Repetition.from_thrift(elements[index].repetition_type.value())
+        if elements[index].type:
+            var physical_type = PhysicalType.from_thrift(elements[index].type.value())
+            var type_length = elements[index].type_length.or_else(-1)
+            var scale = elements[index].scale.or_else(-1)
+            var precision = elements[index].precision.or_else(-1)
+            var name = elements[index].name
+            var primitive_type = PrimitiveType(
+                basic_info=BasicTypeInfo(
+                    name=name,
+                    repetition=repetition,
+                    converted_type=converted_type,
+                    logical_type=logical_type,
+                    id=filed_id,
+                ),
+                physical_type=physical_type,
+                type_length=type_length,
+                scale=scale,
+                precision=precision,
+            )
+            return Tuple(index + 1, Type(primitive_type))
+        else:
+            var group_type = GroupType(
+                basic_info=BasicTypeInfo(
+                    name=elements[index].name,
+                    repetition=None if is_root_node else Optional(repetition),
+                    converted_type=converted_type,
+                    logical_type=logical_type,
+                    id=filed_id,
+                ),
+                fields=[],
+            )
+            return Tuple(index + 1, Type(group_type))
+    else:
+        if elements[index].repetition_type:
+            repetition = Optional(Repetition.from_thrift(elements[index].repetition_type.value()))
+        else:
+            repetition = None
+        var fields = List[Type]()
+        var next_index = index + 1
+        for _ in range(elements[index].num_children.value()):
+            var child_result = from_thrift_helper(elements, next_index)
+            next_index = child_result[0]
+            fields.append(child_result[1])
+
+        var group_type = GroupType(
+            basic_info=BasicTypeInfo(
+                name=elements[index].name,
+                repetition=repetition,
+                converted_type=converted_type,
+                logical_type=logical_type,
+                id=filed_id,
+            ),
+            fields=fields,
+        )
+        return Tuple(next_index, Type(group_type))
+
 @value
 struct SchemaDescriptor:
     var schema: Type
@@ -119,3 +230,9 @@ struct SchemaDescriptor:
         self.schema = tp
         self.leaves = leaves
         self.leaf_to_base = leaf_to_base
+
+    fn columns(self) -> List[ColumnDescriptor]:
+        return self.leaves
+
+    fn num_columns(self) -> Int:
+        return len(self.leaves)

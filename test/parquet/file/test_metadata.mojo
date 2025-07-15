@@ -1,4 +1,7 @@
+from parquet.data_type import ByteArray
 from parquet.file.metadata import ParquetMetaDataReader
+from parquet.file.page_index.index import TypedIndex, NativeInt32, NativeInt64, NativeByteArray
+from parquet.file.statistics import ValueStatistics
 from parquet.gen.parquet.ttypes import Type, FieldRepetitionType, ConvertedType, LogicalType
 from testing import assert_equal, assert_true, assert_false
 
@@ -131,6 +134,7 @@ fn test_offset_index_offset() raises:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
+        assert_equal(len(row_group.columns), 3)
         var column_chunk = row_group.columns[0]
         assert_true(column_chunk.offset_index_offset)
         assert_equal(column_chunk.offset_index_offset.value(), 353)
@@ -140,8 +144,6 @@ fn test_offset_index_offset() raises:
         column_chunk = row_group.columns[2]
         assert_true(column_chunk.offset_index_offset)
         assert_equal(column_chunk.offset_index_offset.value(), 377)
-        column_chunk = row_group.columns[3]
-        assert_false(column_chunk.offset_index_offset)
 
 fn test_offset_index_length() raises:
     var reader = ParquetMetaDataReader()
@@ -149,6 +151,7 @@ fn test_offset_index_length() raises:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
+        assert_equal(len(row_group.columns), 3)
         var column_chunk = row_group.columns[0]
         assert_true(column_chunk.offset_index_length)
         assert_equal(column_chunk.offset_index_length.value(), 10)
@@ -158,8 +161,6 @@ fn test_offset_index_length() raises:
         column_chunk = row_group.columns[2]
         assert_true(column_chunk.offset_index_length)
         assert_equal(column_chunk.offset_index_length.value(), 11)
-        column_chunk = row_group.columns[3]
-        assert_false(column_chunk.offset_index_length)
 
 fn test_column_index_offset() raises:
     var reader = ParquetMetaDataReader()
@@ -167,6 +168,7 @@ fn test_column_index_offset() raises:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
+        assert_equal(len(row_group.columns), 3)
         var column_chunk = row_group.columns[0]
         assert_true(column_chunk.column_index_offset)
         assert_equal(column_chunk.column_index_offset.value(), 267)
@@ -176,8 +178,6 @@ fn test_column_index_offset() raises:
         column_chunk = row_group.columns[2]
         assert_true(column_chunk.column_index_offset)
         assert_equal(column_chunk.column_index_offset.value(), 326)
-        column_chunk = row_group.columns[3]
-        assert_false(column_chunk.column_index_offset)
 
 fn test_column_index_length() raises:
     var reader = ParquetMetaDataReader()
@@ -185,6 +185,7 @@ fn test_column_index_length() raises:
         reader.parse(f)
         var parquet_metadata = reader.finish()
         var row_group = parquet_metadata.row_groups[0]
+        assert_equal(len(row_group.columns), 3)
         var column_chunk = row_group.columns[0]
         assert_true(column_chunk.column_index_length)
         assert_equal(column_chunk.column_index_length.value(), 31)
@@ -194,5 +195,61 @@ fn test_column_index_length() raises:
         column_chunk = row_group.columns[2]
         assert_true(column_chunk.column_index_length)
         assert_equal(column_chunk.column_index_length.value(), 27)
-        column_chunk = row_group.columns[3]
-        assert_false(column_chunk.column_index_length)
+
+fn test_column_index() raises:
+    var reader = ParquetMetaDataReader(with_column_index=True)
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        assert_true(parquet_metadata.column_index)
+        var column_index = parquet_metadata.column_index.value()
+        assert_equal(len(column_index), 1)
+        assert_equal(len(column_index[0]), 3)
+        assert_true(column_index[0][0].isa[TypedIndex[NativeInt64]]())
+        assert_true(column_index[0][1].isa[TypedIndex[NativeByteArray]]())
+        assert_true(column_index[0][2].isa[TypedIndex[NativeInt32]]())
+        assert_equal(len(column_index[0][0][TypedIndex[NativeInt64]].indexes), 1)
+        assert_equal(len(column_index[0][1][TypedIndex[NativeByteArray]].indexes), 1)
+        assert_equal(len(column_index[0][2][TypedIndex[NativeInt32]].indexes), 1)
+        assert_true(column_index[0][0][TypedIndex[NativeInt64]].indexes[0].min)
+        assert_true(column_index[0][0][TypedIndex[NativeInt64]].indexes[0].max)
+        assert_equal(column_index[0][0][TypedIndex[NativeInt64]].indexes[0].min.value(), 1)
+        assert_equal(column_index[0][0][TypedIndex[NativeInt64]].indexes[0].max.value(), 4)
+        assert_true(column_index[0][1][TypedIndex[NativeByteArray]].indexes[0].min)
+        assert_true(column_index[0][1][TypedIndex[NativeByteArray]].indexes[0].max)
+        assert_equal(String(bytes=column_index[0][1][TypedIndex[NativeByteArray]].indexes[0].min.value().value), String("Alice"))
+        assert_equal(String(bytes=column_index[0][1][TypedIndex[NativeByteArray]].indexes[0].max.value().value), String("Dave"))
+        assert_true(column_index[0][2][TypedIndex[NativeInt32]].indexes[0].min)
+        assert_true(column_index[0][2][TypedIndex[NativeInt32]].indexes[0].max)
+        assert_equal(column_index[0][2][TypedIndex[NativeInt32]].indexes[0].min.value(), 25)
+        assert_equal(column_index[0][2][TypedIndex[NativeInt32]].indexes[0].max.value(), 35)
+
+fn test_column_statistics() raises:
+    var reader = ParquetMetaDataReader()
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        var row_group = parquet_metadata.row_groups[0]
+        assert_equal(len(row_group.columns), 3)
+        var column_chunk = row_group.columns[0]
+        assert_true(column_chunk.statistics.isa[ValueStatistics[Int64]]())
+        var i64_stats = column_chunk.statistics[ValueStatistics[Int64]]
+        assert_true(i64_stats.min)
+        assert_equal(i64_stats.min.value(), 1)
+        assert_true(i64_stats.max)
+        assert_equal(i64_stats.max.value(), 4)
+        column_chunk = row_group.columns[1]
+        assert_true(column_chunk.statistics.isa[ValueStatistics[ByteArray]]())
+        var ba_stats = column_chunk.statistics[ValueStatistics[ByteArray]]
+        assert_true(ba_stats.min)
+        assert_equal(String(bytes=ba_stats.min.value().value), String("Alice"))
+        assert_true(ba_stats.max)
+        assert_equal(String(bytes=ba_stats.max.value().value), String("Dave"))
+        column_chunk = row_group.columns[2]
+        assert_true(column_chunk.statistics.isa[ValueStatistics[Int32]]())
+        var i32_stats = column_chunk.statistics[ValueStatistics[Int32]]
+        assert_true(i32_stats.min)
+        assert_equal(i32_stats.min.value(), 25)
+        assert_true(i32_stats.max)
+        assert_equal(i32_stats.max.value(), 35)
+
