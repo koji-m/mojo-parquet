@@ -141,6 +141,17 @@ struct ColumnChunkMetaData:
             end=offset + length,
         ))
 
+    fn offset_index_range(self) raises -> Optional[Range]:
+        if not self.offset_index_offset or not self.offset_index_length:
+            return None
+        var offset = UInt64(self.offset_index_offset.value())
+        var length = UInt64(self.offset_index_length.value())
+        return Optional(Range(
+            start=offset,
+            end=offset + length,
+        ))
+
+
 @value
 struct RowGroupMetaData:
     var columns: List[ColumnChunkMetaData]
@@ -291,6 +302,9 @@ struct ParquetMetaDataReader:
                 var cc = rg.columns[j]
                 var column_index_range = cc.column_index_range()
                 total_range = accumulate_range(total_range, column_index_range)
+                var offset_index_range = cc.offset_index_range()
+                total_range = accumulate_range(total_range, offset_index_range)
+
         return total_range
 
     fn parse_single_column_index(self, bytes: List[UInt8], column_chunk: ColumnChunkMetaData) raises -> Index:
