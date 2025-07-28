@@ -6,7 +6,7 @@ from thrift.transport import TMemoryBuffer
 from parquet.file.constants import FOOTER_SIZE, PARQUET_MAGIC
 from parquet.file.page_index.offset_index import OffsetIndexMetaData
 from parquet.file.page_index.index import Index
-from parquet.file.page_index.index_reader import decode_column_index, accumulate_range
+from parquet.file.page_index.index_reader import decode_column_index, decode_offset_index, accumulate_range
 import parquet.file.statistics as statistics
 import parquet.file.page_encoding_stats as page_encoding_stats
 import parquet.schema.types as types
@@ -14,6 +14,7 @@ from parquet.types import PhysicalType, Encoding, CompressionCodec
 from parquet.utils import Range
 
 alias ParquetColumnIndex = List[List[Index]]
+alias ParquetOffsetIndex = List[List[OffsetIndexMetaData]]
 
 @value
 struct FileMetaData:
@@ -193,7 +194,7 @@ struct RowGroupMetaData:
 struct ParquetMetaData:
     var file_metadata: FileMetaData
     var row_groups: List[RowGroupMetaData]
-    var offset_index: Optional[List[List[OffsetIndexMetaData]]]
+    var offset_index: Optional[ParquetOffsetIndex]
     var column_index: Optional[ParquetColumnIndex]
 
 @value
@@ -214,10 +215,10 @@ struct ParquetMetaDataReader:
         self.prefetch_hint = Optional[Int](None)
         self.metadata_size = Optional[Int](None)
 
-    fn __init__(out self, with_column_index: Bool):
+    fn __init__(out self, with_page_index: Bool):
         self.metadata = Optional[ParquetMetaData](None)
-        self.column_index = with_column_index
-        self.offset_index = False
+        self.column_index = with_page_index
+        self.offset_index = with_page_index
         self.prefetch_hint = Optional[Int](None)
         self.metadata_size = Optional[Int](None)
 
@@ -280,7 +281,7 @@ struct ParquetMetaDataReader:
     fn parse(mut self, chunk_reader: FileHandle) raises:
         var parquet_metadata = self.parse_metadata(chunk_reader)
         self.metadata = Optional[ParquetMetaData](parquet_metadata)
-        if self.column_index:
+        if self.column_index and self.offset_index:
             self.read_page_index(chunk_reader)
 
     fn read_page_index(mut self, chunk_reader: FileHandle) raises:
@@ -290,6 +291,7 @@ struct ParquetMetaDataReader:
         _ = chunk_reader.seek(index_bytes_range.value().start)
         var index_bytes = chunk_reader.read_bytes(Int(index_bytes_range.value().length()))
         self.parse_column_index(index_bytes, index_bytes_range.value().start)
+        self.parse_offset_index(index_bytes, index_bytes_range.value().start)
 
     fn range_for_page_index(self) raises -> Optional[Range]:
         if not self.metadata:
@@ -332,7 +334,32 @@ struct ParquetMetaDataReader:
                 )
             col_index.append(cc_indices)
         self.metadata.value().column_index = Optional[ParquetColumnIndex](col_index)
-                
+
+    fn parse_single_offset_index(self, bytes: List[UInt8]) raises -> OffsetIndexMetaData:
+        return decode_offset_index(bytes)
+
+    fn parse_offset_index(mut self, bytes: List[UInt8], start_offset: UInt64) raises:
+        if not self.metadata:
+            raise Error("metadata not parsed yet")
+        var metadata = self.metadata.value()
+        var offset_index = ParquetOffsetIndex()
+        for rg_idx in range(len(metadata.row_groups)):
+            var rg = metadata.row_groups[rg_idx]
+            var oi_indices = List[OffsetIndexMetaData]()
+            for col_idx in range(len(rg.columns)):
+                var cc = rg.columns[col_idx]
+                if not cc.offset_index_offset:
+                    raise Error("Offset index offset is not set for column ", col_idx, " in row group ", rg_idx)
+                var oi_start = Int(cc.offset_index_offset.value()) - Int(start_offset)
+                if not cc.offset_index_length:
+                    raise Error("Offset index length is not set for column ", col_idx, " in row group ", rg_idx)
+                var oi_length = Int(cc.offset_index_length.value())
+                var index_bytes = bytes[oi_start:oi_start + oi_length]
+                oi_indices.append(
+                    self.parse_single_offset_index(index_bytes)
+                )
+            offset_index.append(oi_indices)
+        self.metadata.value().offset_index = Optional[ParquetOffsetIndex](offset_index)
 
     fn finish(mut self) raises -> ParquetMetaData:
         if self.metadata:

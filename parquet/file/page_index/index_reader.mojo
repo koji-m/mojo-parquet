@@ -2,6 +2,7 @@ import parquet.gen.parquet.ttypes as tt
 from thrift.protocol.compact import TCompactProtocol
 from thrift.transport import TMemoryBuffer
 from parquet.file.page_index.index import Index, TypedIndex, NativeBool, NativeInt32, NativeInt64, NativeByteArray
+from parquet.file.page_index.offset_index import OffsetIndexMetaData
 from parquet.types import PhysicalType
 from parquet.utils import Range
 
@@ -35,6 +36,24 @@ fn decode_column_index(bytes: List[UInt8], column_type: PhysicalType) raises -> 
         )
     else:
         raise Error("Unsupported column type for index decoding: ", column_type.value)
+
+fn decode_offset_index(bytes: List[UInt8]) raises -> OffsetIndexMetaData:
+    var transport = TMemoryBuffer(bytes, 0)
+    var protocol = TCompactProtocol(
+        transport,
+        Optional[Bool](None),
+        0,
+        List[Int16](),
+        0,
+        List[Int16](),
+        Optional[Int16](None),
+    )
+    var toffset_index = tt.OffsetIndex.read(protocol)
+
+    return OffsetIndexMetaData(
+        toffset_index.page_locations,
+        toffset_index.unencoded_byte_array_data_bytes,
+    )
 
 fn accumulate_range(l: Optional[Range], r: Optional[Range]) raises -> Optional[Range]:
     if not l:

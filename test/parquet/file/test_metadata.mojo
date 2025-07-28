@@ -197,7 +197,7 @@ fn test_column_index_length() raises:
         assert_equal(column_chunk.column_index_length.value(), 27)
 
 fn test_column_index() raises:
-    var reader = ParquetMetaDataReader(with_column_index=True)
+    var reader = ParquetMetaDataReader(with_page_index=True)
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
@@ -253,3 +253,18 @@ fn test_column_statistics() raises:
         assert_true(i32_stats.max)
         assert_equal(i32_stats.max.value(), 35)
 
+fn test_offset_index() raises:
+    var reader = ParquetMetaDataReader(with_page_index=True)
+    with open("test/data/example_01.parquet", "r") as f:
+        reader.parse(f)
+        var parquet_metadata = reader.finish()
+        assert_true(parquet_metadata.offset_index)
+        var offset_index = parquet_metadata.offset_index.value()
+        assert_equal(len(offset_index), 1)
+        assert_equal(len(offset_index[0]), 3)
+        assert_equal(len(offset_index[0][0].page_locations), 1)
+        assert_equal(offset_index[0][0].page_locations[0].first_row_index, 0)
+        assert_equal(len(offset_index[0][1].page_locations), 1)
+        assert_equal(offset_index[0][1].page_locations[0].first_row_index, 0)
+        assert_equal(len(offset_index[0][2].page_locations), 1)
+        assert_equal(offset_index[0][2].page_locations[0].first_row_index, 0)
