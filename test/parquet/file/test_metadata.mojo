@@ -24,7 +24,7 @@ fn test_num_row_groups() raises:
     with open("test/data/example_01.parquet", "r") as f:
         reader.parse(f)
         var parquet_metadata = reader.finish()
-        assert_equal(len(parquet_metadata.row_groups), 1)
+        assert_equal(parquet_metadata.num_row_groups(), 1)
 
 fn test_created_by() raises:
     var reader = ParquetMetaDataReader()

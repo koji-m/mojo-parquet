@@ -197,6 +197,9 @@ struct ParquetMetaData:
     var offset_index: Optional[ParquetOffsetIndex]
     var column_index: Optional[ParquetColumnIndex]
 
+    fn num_row_groups(self) -> Int:
+        return len(self.row_groups)
+
 @value
 struct FooterTail:
     var metadata_length: Int

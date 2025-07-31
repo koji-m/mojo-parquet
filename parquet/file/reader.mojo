@@ -9,3 +9,6 @@ struct FileReader:
         reader.parse(chunk_reader)
         self.metadata = reader.finish()
         self.chunk_reader = chunk_reader^
+
+    fn num_row_groups(self) -> Int:
+        return self.metadata.num_row_groups()
